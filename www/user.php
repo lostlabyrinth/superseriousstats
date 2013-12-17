@@ -277,7 +277,7 @@ final class user
 		/**
 		 * HTML Foot.
 		 */
-		$output .= '<div class="info">Statistics created with <a href="http://sss.dutnie.nl">superseriousstats</a> on '.date('r').'.</div>'."\n";
+		$output .= '<div class="info">Statistics created with <a href="https://github.com/lostlabyrinth/uberseriousstats">uberseriousstats</a>, a modified build of <a href="http://sss.dutnie.nl">superseriousstats</a>, on '.date('r').'.</div>'."\n";
 		$output .= '</div></body>'."\n\n".'</html>'."\n";
 		@mysqli_close($this->mysqli);
 		return $output;
