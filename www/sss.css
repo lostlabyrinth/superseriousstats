@@ -16,6 +16,21 @@ body {
 #container {
 	float:left;
 }
+.even,
+.head,
+.info,
+.odd {
+        font-family:verdana,sans-serif;
+        font-size:12px;
+        font-weight:bold;
+}
+.even {
+        color:#666;
+        float:left;
+        margin:15px 22px 7px 0;
+        vertical-align:top;
+        width:160px;
+}
 .grey {
 	color:#999;
 }
@@ -45,6 +60,14 @@ body {
 	float:right;
 	font-style:italic;
 	font-weight:normal;
+}
+.odd {
+        color:#999;
+        float:left;
+        margin:15px 8px 7px 0;
+        text-align:right;
+        vertical-align:top;
+        width:90px;
 }
 /**
  * Graph colors
