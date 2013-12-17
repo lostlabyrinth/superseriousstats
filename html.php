@@ -224,7 +224,7 @@ final class html extends base
 			      . '<head>'."\n"
 			      . '<meta charset="utf-8">'."\n"
 			      . '<title>'.htmlspecialchars($this->channel).', seriously.</title>'."\n"
-			      . '<link rel="shortcut icon" href='.htmlspecialchars($this->favicon).'>'
+			      . '<link rel="shortcut icon" href="'.htmlspecialchars($this->favIcon).'">'
 			      . '<link rel="stylesheet" href="'.$this->stylesheet.'">'."\n"
 			      . '<style type="text/css">'."\n"
 			      . '  .act-year { width:'.(2 + (($this->years + ($this->estimate ? 1 : 0)) * 34)).'px }'."\n"
