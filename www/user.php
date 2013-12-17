@@ -397,10 +397,11 @@ final class user
 
                                 foreach (${$table} as $key => $fullkey) {
                                         if (!empty($result->$key)) {
-                                                $stats[$fullkey] = (int) $result->$key;
-
-                                                if (strpos($key, 's_') === 0) {
+                                                if ($table == 'q_smileys') {
+                                                        $stats[htmlspecialchars($fullkey)] = (int) $result->$key;
                                                         $smileys += (int) $result->$key;
+                                                } else {
+                                                        $stats[$fullkey] = (int) $result->$key;
                                                 }
                                         }
                                 }
