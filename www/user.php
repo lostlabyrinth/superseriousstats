@@ -271,7 +271,7 @@ final class user
                 /**
                  * Numbers section.
                  */
-                $output .= "\n".'<div class="head">The Numbers</div>'."\n";
+                $output .= "\n".'<div class="section">The Numbers</div>'."\n";
                 $output .= $this->make_table_numbers();
 
 		/**
