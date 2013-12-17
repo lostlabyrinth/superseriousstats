@@ -19,26 +19,23 @@
 /**
  * Parse instructions for the Textual logfile format.
  *
- * Line         Format                                                  Notes
- * ---------------------------------------------------------------------------------------------------------------------
- * Normal       NICK: MSG                                               Skip empty lines.
- * Nickchange   NICK is now known as NICK
- * Join         NICK (HOST) joined the channel.
- * Part         NICK (HOST) left the channel. (MSG)                     Part message may be absent, or empty due to
- *                                                                      normalization.
- * Quit         NICK (HOST) left IRC. (MSG)                             Quit message may be empty due to normalization.
- *                                                                      IRC is literal.
- * Mode         NICK sets mode +o-v NICK NICK                           Only check for combinations of ops (+o) and
- *                                                                      voices (+v).
- * Topic        NICK changed the topic to MSG                           Skip empty topics.
- * Kick         NICK kicked NICK from the channel. (MSG)                Kick message may be empty due to normalization.
- * ---------------------------------------------------------------------------------------------------------------------
+ * +------------+-------------------------------------------------------+->
+ * | Line	| Format						| Notes
+ * +------------+-------------------------------------------------------+->
+ * | Normal	| NICK: MSG						| Skip empty lines.
+ * | Nickchange	| NICK is now known as NICK				|
+ * | Join	| NICK (HOST) joined the channel.			|
+ * | Part	| NICK (HOST) left the channel. (MSG)			| Part message may be absent, or empty due to normalization.
+ * | Quit	| NICK (HOST) left IRC. (MSG)				| Quit message may be empty due to normalization. IRC is literal.
+ * | Mode	| NICK sets mode +o-v NICK NICK				| Only check for combinations of ops (+o) and voices (+v).
+ * | Topic	| NICK changed the topic to MSG				| Skip empty topics.
+ * | Kick	| NICK kicked NICK from the channel. (MSG)		| Kick message may be empty due to normalization.
+ * +------------+-------------------------------------------------------+->
  *
  * Notes:
  * - normalize_line() scrubs all lines before passing them on to parse_line().
  * - Textual uses the same syntax for actions as "normal" lines. This makes the two indistinguishable. Pretty dumb.
- * - Given that nicks can't contain ":" the order of the regular expressions below is irrelevant (current order aims for
- *   best performance).
+ * - Given that nicks can't contain ":" the order of the regular expressions below is irrelevant (current order aims for best performance).
  */
 final class parser_textual extends parser
 {
@@ -74,13 +71,13 @@ final class parser_textual extends parser
 		 * "Mode" lines.
 		 */
 		} elseif (preg_match('/^\[(?<time>\d{2}:\d{2}(:\d{2})?)\] (?<nick_performing>\S+) sets mode (?<modes>[-+][ov]+([-+][ov]+)?) (?<nicks_undergoing>\S+( \S+)*)$/', $line, $matches)) {
-			$modenum = 0;
 			$nicks_undergoing = explode(' ', $matches['nicks_undergoing']);
+			$modenum = 0;
 
 			for ($i = 0, $j = strlen($matches['modes']); $i < $j; $i++) {
 				$mode = substr($matches['modes'], $i, 1);
 
-				if ($mode === '-' || $mode === '+') {
+				if ($mode == '-' || $mode == '+') {
 					$modesign = $mode;
 				} else {
 					$this->set_mode($this->date.' '.$matches['time'], $matches['nick_performing'], $nicks_undergoing[$modenum], $modesign.$mode);
@@ -115,7 +112,7 @@ final class parser_textual extends parser
 		/**
 		 * Skip everything else.
 		 */
-		} elseif ($line !== '') {
+		} elseif ($line != '') {
 			$this->output('debug', 'parse_line(): skipping line '.$this->linenum.': \''.$line.'\'');
 		}
 	}

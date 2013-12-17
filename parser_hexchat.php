@@ -19,25 +19,24 @@
 /**
  * Parse instructions for the HexChat logfile format.
  *
- * Line         Format                                                  Notes
- * ---------------------------------------------------------------------------------------------------------------------
- * Normal       <NICK> MSG                                              Skip empty lines.
- * Nickchange   * NICK is now known as NICK
- * Join         * NICK (HOST) has joined CHAN
- * Part         * NICK (HOST) has left CHAN (MSG)                       Part message may be absent, or empty due to
- *                                                                      normalization.
- * Quit         * NICK has quit (MSG)                                   Quit message may be empty due to normalization.
- * Mode         * NICK gives channel operator status to NICK NICK       Only check for ops (channel operator status) and
- *                                                                      voices.
- * Mode         * NICK removes voice from NICK NICK                     "
- * Topic        * NICK has changed the topic to: MSG                    Skip empty topics.
- * Kick         * NICK has kicked NICK from CHAN (MSG)                  Kick message may be empty due to normalization.
- * ---------------------------------------------------------------------------------------------------------------------
+ * +------------+-------------------------------------------------------+->
+ * | Line	| Format						| Notes
+ * +------------+-------------------------------------------------------+->
+ * | Normal	| <NICK> MSG						| Skip empty lines.
+ * | Nickchange	| * NICK is now known as NICK				|
+ * | Join	| * NICK (HOST) has joined CHAN				|
+ * | Part	| * NICK (HOST) has left CHAN (MSG)			| Part message may be absent, or empty due to normalization.
+ * | Quit	| * NICK has quit (MSG)					| Quit message may be empty due to normalization.
+ * | Mode	| * NICK gives channel operator status to NICK NICK	| Only check for ops (channel operator status) and voices.
+ * | Mode	| * NICK removes voice from NICK NICK			| "
+ * | Topic	| * NICK has changed the topic to: MSG			| Skip empty topics.
+ * | Kick	| * NICK has kicked NICK from CHAN (MSG)		| Kick message may be empty due to normalization.
+ * +------------+-------------------------------------------------------+->
  *
  * Notes:
  * - normalize_line() scrubs all lines before passing them on to parse_line().
- * - The way HexChat logs actions is pretty dumb, we can spoof nearly all other line types with our actions. Even
- *   non-chat messages are logged with the same syntax. For this reason we won't parse for actions.
+ * - The way HexChat logs actions is pretty dumb, we can spoof nearly all other line types with our actions. Even non-chat messages are logged with the same
+ *   syntax. For this reason we won't parse for actions.
  * - The order of the regular expressions below is irrelevant (current order aims for best performance).
  * - The most common channel prefixes are "#&!+".
  */
@@ -72,13 +71,13 @@ final class parser_hexchat extends parser
 		} elseif (preg_match('/^\S{3} \d{2} (?<time>\d{2}:\d{2}(:\d{2})?) \* (?<nick_performing>\S+) (?<modesign>gives|removes) (?<mode>channel operator status|voice) (to|from) (?<nicks_undergoing>\S+( \S+)*)$/', $line, $matches)) {
 			$nicks_undergoing = explode(' ', $matches['nicks_undergoing']);
 
-			if ($matches['modesign'] === 'gives') {
+			if ($matches['modesign'] == 'gives') {
 				$modesign = '+';
 			} else {
 				$modesign = '-';
 			}
 
-			if ($matches['mode'] === 'channel operator status') {
+			if ($matches['mode'] == 'channel operator status') {
 				$mode = 'o';
 			} else {
 				$mode = 'v';
@@ -115,7 +114,7 @@ final class parser_hexchat extends parser
 		/**
 		 * Skip everything else.
 		 */
-		} elseif ($line !== '') {
+		} elseif ($line != '') {
 			$this->output('debug', 'parse_line(): skipping line '.$this->linenum.': \''.$line.'\'');
 		}
 	}

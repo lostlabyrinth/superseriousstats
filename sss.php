@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Copyright (c) 2009-2013, Jos de Ruijter <jos@dutnie.nl>
+ * Copyright (c) 2009-2012, Jos de Ruijter <jos@dutnie.nl>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,14 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-ini_set('display_errors', 'stdout');
-ini_set('error_reporting', -1);
-
-/**
- * Check if all required extension are loaded.
- */
-if (!extension_loaded('sqlite3')) {
-	exit('sqlite3 extension isn\'t loaded'."\n");
+if (!extension_loaded('mysqli')) {
+	exit('mysqli extension isn\'t loaded'."\n");
 }
 
 if (!extension_loaded('mbstring')) {
@@ -31,7 +25,7 @@ if (!extension_loaded('mbstring')) {
 }
 
 /**
- * Class autoloader. This code handles on the fly inclusion of class files at time of instantiation.
+ * Class autoloader, new style. Important piece of code right here.
  */
 spl_autoload_register(function ($class) {
 	require_once(rtrim(dirname(__FILE__), '/\\').'/'.$class.'.php');
@@ -43,60 +37,67 @@ spl_autoload_register(function ($class) {
 final class sss extends base
 {
 	/**
-	 * Default settings for this script, which can be overridden in the configuration file. These variables should
-	 * all appear in $settings_list[] along with their type.
+	 * Default settings for this script, can be overridden in the config file. These should all appear in $settings_list[] along with their type.
 	 */
 	private $autolinknicks = true;
-	private $database = 'sss.db3';
+	private $db_host = '127.0.0.1';
+	private $db_name = 'sss';
+	private $db_pass = '';
+	private $db_port = 3306;
+	private $db_user = '';
 	private $logfile_dateformat = '';
 	private $parser = '';
-	private $settings_list = array(
-		'autolinknicks' => 'bool',
-		'database' => 'string',
-		'logfile_dateformat' => 'string',
-		'outputbits' => 'int',
-		'parser' => 'string',
-		'timezone' => 'string');
 	private $timezone = 'UTC';
 
 	/**
 	 * Variables that shouldn't be tampered with.
 	 */
+	private $mysqli;
 	private $settings = array();
-	private $settings_list_required = array();
+	private $settings_list = array(
+		'autolinknicks' => 'bool',
+		'db_host' => 'string',
+		'db_name' => 'string',
+		'db_pass' => 'string',
+		'db_port' => 'int',
+		'db_user' => 'string',
+		'logfile_dateformat' => 'string',
+		'parser' => 'string',
+		'outputbits' => 'int',
+		'timezone' => 'string');
+	private $settings_list_required = array('db_pass', 'db_user');
 
 	public function __construct()
 	{
 		/**
-		 * Explicitly set the locale to C (POSIX) for all categories so there hopefully won't be any unexpected
-		 * results between platforms.
+		 * Explicitly set the locale to C (POSIX) for all categories so we won't run into unexpected results between platforms.
 		 */
 		setlocale(LC_ALL, 'C');
 
 		/**
-		 * Use UTC until the default, or user specified, timezone is loaded.
+		 * Use UTC until user specified timezone is loaded.
 		 */
 		date_default_timezone_set('UTC');
 
 		/**
-		 * Read options from the command line. Print the manual on invalid input.
+		 * Read options from the command line. If an illegal combination of valid options is given the program will print the manual on screen and exit.
 		 */
-		$options = getopt('b:c:e:i:n:o:s');
+		$options = getopt('b:c:e:i:mn:o:s');
 		ksort($options);
 		$options_keys = implode('', array_keys($options));
 
-		if (!preg_match('/^(bc?i?o|c|c?(e|i|i?o|n|s))$/', $options_keys)) {
+		if (!preg_match('/^(bc?i?o|c|c?(e|i|i?o|m|n|s))$/', $options_keys)) {
 			$this->print_manual();
 		}
 
 		/**
-		 * Some options require additional settings to be set in the configuration file. Add those to the list.
+		 * Some options require additional settings to be set in the configuration file.
 		 */
 		if (strpos($options_keys, 'i') !== false) {
 			array_push($this->settings_list_required, 'parser', 'logfile_dateformat');
 		}
 
-		if (strpos($options_keys, 'o') !== false || strpos($options_keys, 's') !== false) {
+		if (strpos($options_keys, 'o') !== false) {
 			$this->settings_list_required[] = 'channel';
 		}
 
@@ -117,31 +118,11 @@ final class sss extends base
 		}
 
 		/**
-		 * Open the database connection. Always needed from this point forward.
+		 * Make the database connection. Always needed.
 		 */
-		try {
-			$sqlite3 = new SQLite3($this->database, SQLITE3_OPEN_READWRITE);
-			$sqlite3->busyTimeout(60000);
-		} catch (Exception $e) {
-			$this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$e->getMessage());
-		}
-
-		/**
-		 * Set SQLite3 PRAGMAs:
-		 *  journal_mode = OFF - Disable the rollback journal completely.
-		 *  synchronous = OFF - Continue without syncing as soon as data is handed off to the operating system.
-		 *  temp_store = MEMORY - Temporary tables and indices are kept in memory.
-		 */
-		$pragmas = array(
-			'journal_mode' => 'OFF',
-			'synchronous' => 'OFF',
-			'temp_store' => 'MEMORY');
-
-		foreach ($pragmas as $key => $value) {
-			$sqlite3->exec('PRAGMA '.$key.' = '.$value);
-		}
-
-		$this->output('notice', 'sss(): succesfully connected to database: \''.$this->database.'\'');
+		$this->mysqli = @mysqli_connect($this->db_host, $this->db_user, $this->db_pass, $this->db_name, $this->db_port) or $this->output('critical', 'mysqli: '.mysqli_connect_error());
+		$this->output('notice', 'sss(): succesfully connected to '.$this->db_host.':'.$this->db_port.', database: \''.$this->db_name.'\'');
+		mysqli_set_charset($this->mysqli, 'utf8') or $this->output('critical', 'mysqli: '.mysqli_error($this->mysqli));
 
 		/**
 		 * The following options are listed in order of execution. Ie. "i" before "o", "b" before "o".
@@ -151,80 +132,76 @@ final class sss extends base
 		}
 
 		if (array_key_exists('e', $options)) {
-			$this->export_nicks($sqlite3, $options['e']);
+			$this->export_nicks($options['e']);
 		}
 
 		if (array_key_exists('i', $options)) {
-			$this->parse_log($sqlite3, $options['i']);
+			$this->parse_log($options['i']);
+		}
+
+		if (array_key_exists('m', $options)) {
+			$this->do_maintenance();
 		}
 
 		if (array_key_exists('n', $options)) {
-			$this->import_nicks($sqlite3, $options['n']);
-
-			/**
-			 * Run maintenance after import.
-			 */
-			$this->do_maintenance($sqlite3);
+			$this->import_nicks($options['n']);
 		}
 
 		if (array_key_exists('o', $options)) {
-			$this->make_html($sqlite3, $options['o']);
+			$this->make_html($options['o']);
 		}
 
-		$sqlite3->close();
-		$this->output('notice', 'sss(): kthxbye');
+		@mysqli_close($this->mysqli);
 	}
 
-	/**
-	 * The maintenance routines ensure that all relevant user data is accumulated properly.
-	 */
-	private function do_maintenance($sqlite3)
+	private function do_maintenance()
 	{
 		/**
-		 * Search for new aliases if $autolinknicks is enabled.
+		 * Scan for new aliases when $autolinknicks is enabled.
 		 */
 		if ($this->autolinknicks) {
-			$this->link_nicks($sqlite3);
+			$this->link_nicks();
 		}
 
 		$maintenance = new maintenance($this->settings);
-		$maintenance->do_maintenance($sqlite3);
+		$maintenance->do_maintenance($this->mysqli);
 	}
 
-	private function export_nicks($sqlite3, $file)
+	private function export_nicks($file)
 	{
 		$this->output('notice', 'export_nicks(): exporting nicks');
-		$query = $sqlite3->query('SELECT csnick, ruid, status FROM uid_details ORDER BY csnick ASC') or $this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$sqlite3->lastErrorMsg());
-		$result = $query->fetchArray(SQLITE3_ASSOC);
+		$query = @mysqli_query($this->mysqli, 'select `user_details`.`uid`, `ruid`, `csnick`, `status` from `user_details` join `user_status` on `user_details`.`uid` = `user_status`.`uid` order by `csnick` asc') or $this->output('critical', 'mysqli: '.mysqli_error($this->mysqli));
+		$rows = mysqli_num_rows($query);
 
-		if ($result === false) {
-			$this->output('critical', 'export_nicks(): database is empty');
+		if (empty($rows)) {
+			$this->output('warning', 'export_nicks(): database is empty, nothing to do');
+			return null;
 		}
 
-		$query->reset();
-
-		while ($result = $query->fetchArray(SQLITE3_ASSOC)) {
-			if ($result['status'] === 1 || $result['status'] === 3 || $result['status'] === 4) {
-				$registerednicks[$result['ruid']] = strtolower($result['csnick']);
-				$statuses[$result['ruid']] = $result['status'];
-			} elseif ($result['status'] === 2) {
-				$aliases[$result['ruid']][] = strtolower($result['csnick']);
+		while ($result = mysqli_fetch_object($query)) {
+			if ((int) $result->status == 1 || (int) $result->status == 3) {
+				$registered[strtolower($result->csnick)] = (int) $result->uid;
+				$statuses[(int) $result->uid] = (int) $result->status;
+			} elseif ((int) $result->status == 2) {
+				$aliases[(int) $result->ruid][] = strtolower($result->csnick);
 			} else {
-				$unlinked[] = strtolower($result['csnick']);
+				$unlinked[] = strtolower($result->csnick);
 			}
 		}
 
-		$i = 0;
 		$output = '';
+		$i = 0;
 
-		if (!empty($registerednicks)) {
-			foreach ($registerednicks as $ruid => $nick) {
+		if (!empty($registered)) {
+			foreach ($registered as $user => $uid) {
+				$output .= $statuses[$uid].','.$user;
 				$i++;
-				$output .= $statuses[$ruid].','.$nick;
 
-				if (!empty($aliases[$ruid])) {
-					$i += count($aliases[$ruid]);
-					$output .= ','.implode(',', $aliases[$ruid]);
+				if (!empty($aliases[$uid])) {
+					foreach ($aliases[$uid] as $alias) {
+						$output .= ','.$alias;
+						$i++;
+					}
 				}
 
 				$output .= "\n";
@@ -232,11 +209,21 @@ final class sss extends base
 		}
 
 		if (!empty($unlinked)) {
-			$i += count($unlinked);
-			$output .= '*,'.implode(',', $unlinked)."\n";
+			$output .= '*';
+
+			foreach ($unlinked as $nick) {
+				$output .= ','.$nick;
+				$i++;
+			}
+
+			$output .= "\n";
 		}
 
-		if (($fp = fopen($file, 'wb')) === false) {
+		if ($i != $rows) {
+			$this->output('critical', 'export_nicks(): something is wrong, run "php sss.php -m" before export');
+		}
+
+		if (($fp = @fopen($file, 'wb')) === false) {
 			$this->output('critical', 'export_nicks(): failed to open file: \''.$file.'\'');
 		}
 
@@ -247,85 +234,60 @@ final class sss extends base
 
 	private function export_settings()
 	{
-		/**
-		 * The following is a list of settings accepted by history.php and/or user.php along with their type.
-		 */
-		$settings_list = array(
-			'channel' => 'string',
-			'database' => 'string',
-			'mainpage' => 'string',
-			'maxrows_people_month' => 'int',
-			'maxrows_people_timeofday' => 'int',
-			'maxrows_people_year' => 'int',
-			'rankings' => 'bool',
-			'stylesheet' => 'string',
-			'timezone' => 'string',
-			'userstats' => 'bool',
-			'userpics' => 'bool',
-			'userpics_dir' => 'string');
-		$vars = '$settings[\''.(!empty($this->settings['cid']) ? $this->settings['cid'] : $this->settings['channel']).'\'] = array(';
-
-		foreach ($settings_list as $key => $type) {
-			if (!array_key_exists($key, $this->settings)) {
-				continue;
-			}
-
-			if ($type === 'string') {
-				$vars .= "\n\t".'\''.$key.'\' => \''.$this->settings[$key].'\',';
-			} elseif ($type === 'int') {
-				$vars .= "\n\t".'\''.$key.'\' => '.(int) $this->settings[$key].',';
-			} elseif ($type === 'bool') {
-				if (strtolower($this->settings[$key]) === 'true') {
-					$vars .= "\n\t".'\''.$key.'\' => true,';
-				} elseif (strtolower($this->settings[$key]) === 'false') {
-					$vars .= "\n\t".'\''.$key.'\' => false,';
-				}
-			}
+		if (!empty($this->settings['cid'])) {
+			$vars = '$settings[\''.$this->settings['cid'].'\'] = array(';
+		} elseif (!empty($this->settings['channel'])) {
+			$vars = '$settings[\''.$this->settings['channel'].'\'] = array(';
+		} else {
+			$this->output('critical', 'export_settings(): both \'cid\' and \'channel\' are empty');
 		}
 
-		exit(rtrim($vars, ',').');'."\n");
+		foreach ($this->settings as $key => $value) {
+			$vars .= "\n\t".'\''.$key.'\' => \''.$value.'\',';
+		}
+
+		exit(rtrim($vars, ',')."\n".');'."\n");
 	}
 
-	private function import_nicks($sqlite3, $file)
+	private function import_nicks($file)
 	{
 		$this->output('notice', 'import_nicks(): importing nicks');
-		$query = $sqlite3->query('SELECT uid, csnick FROM uid_details') or $this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$sqlite3->lastErrorMsg());
-		$result = $query->fetchArray(SQLITE3_ASSOC);
+		$query = @mysqli_query($this->mysqli, 'select `uid`, `csnick` from `user_details`') or $this->output('critical', 'mysqli: '.mysqli_error($this->mysqli));
+		$rows = mysqli_num_rows($query);
 
-		if ($result === false) {
-			$this->output('critical', 'import_nicks(): database is empty');
+		if (empty($rows)) {
+			$this->output('warning', 'import_nicks(): database is empty, nothing to do');
+			return null;
 		}
 
-		$query->reset();
-
-		while ($result = $query->fetchArray(SQLITE3_ASSOC)) {
-			$uids[strtolower($result['csnick'])] = $result['uid'];
+		while ($result = mysqli_fetch_object($query)) {
+			$uids[strtolower($result->csnick)] = (int) $result->uid;
 		}
 
 		if (($rp = realpath($file)) === false) {
 			$this->output('critical', 'import_nicks(): no such file: \''.$file.'\'');
 		}
 
-		if (($fp = fopen($rp, 'rb')) === false) {
+		if (($fp = @fopen($rp, 'rb')) === false) {
 			$this->output('critical', 'import_nicks(): failed to open file: \''.$file.'\'');
 		}
 
 		while (!feof($fp)) {
-			$line = preg_replace('/\s/', '', fgets($fp));
+			$line = fgets($fp);
+			$line = preg_replace('/\s/', '', $line);
 			$lineparts = explode(',', strtolower($line));
-			$status = (int) $lineparts[0];
 
 			/**
-			 * The first nick on each line will be the initial registered nick which aliases are linked to.
+			 * First nick on each line is the initial registered nick which aliases are linked to.
 			 */
-			if (($status === 1 || $status === 3 || $status === 4) && !empty($lineparts[1]) && array_key_exists($lineparts[1], $uids)) {
-				$ruid = $uids[$lineparts[1]];
-				$ruids[] = $ruid;
-				$statuses[$ruid] = $status;
+			if (((int) $lineparts[0] == 1 || (int) $lineparts[0] == 3) && !empty($lineparts[1]) && array_key_exists($lineparts[1], $uids)) {
+				$uid = $uids[$lineparts[1]];
+				$registered[] = $uid;
+				$statuses[$uid] = (int) $lineparts[0];
 
 				for ($i = 2, $j = count($lineparts); $i < $j; $i++) {
 					if (!empty($lineparts[$i]) && array_key_exists($lineparts[$i], $uids)) {
-						$aliases[$ruid][] = $uids[$lineparts[$i]];
+						$aliases[$uid][] = $uids[$lineparts[$i]];
 					}
 				}
 			}
@@ -333,104 +295,138 @@ final class sss extends base
 
 		fclose($fp);
 
-		if (empty($ruids)) {
-			$this->output('critical', 'import_nicks(): no user relations found to import');
+		if (empty($registered)) {
+			$this->output('warning', 'import_nicks(): no user relations found to import');
 		} else {
 			/**
-			 * Set all nicks to their default status before updating them according to imported data.
+			 * Set all nicks to their default status before updating them according to new data.
 			 */
-			$sqlite3->exec('BEGIN TRANSACTION') or $this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$sqlite3->lastErrorMsg());
-			$sqlite3->exec('UPDATE uid_details SET ruid = uid, status = 0') or $this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$sqlite3->lastErrorMsg());
+			@mysqli_query($this->mysqli, 'update `user_status` set `ruid` = `uid`, `status` = 0') or $this->output('critical', 'mysqli: '.mysqli_error($this->mysqli));
 
-			foreach ($ruids as $ruid) {
-				$sqlite3->exec('UPDATE uid_details SET status = '.$statuses[$ruid].' WHERE uid = '.$ruid) or $this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$sqlite3->lastErrorMsg());
+			foreach ($registered as $uid) {
+				@mysqli_query($this->mysqli, 'update `user_status` set `ruid` = `uid`, `status` = '.$statuses[$uid].' where `uid` = '.$uid) or $this->output('critical', 'mysqli: '.mysqli_error($this->mysqli));
 
-				if (!empty($aliases[$ruid])) {
-					$sqlite3->exec('UPDATE uid_details SET ruid = '.$ruid.', status = 2 WHERE uid IN ('.implode(',', $aliases[$ruid]).')') or $this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$sqlite3->lastErrorMsg());
+				if (!empty($aliases[$uid])) {
+					@mysqli_query($this->mysqli, 'update `user_status` set `ruid` = '.$uid.', `status` = 2 where `uid` in ('.implode(',', $aliases[$uid]).')') or $this->output('critical', 'mysqli: '.mysqli_error($this->mysqli));
 				}
 			}
 
-			$sqlite3->exec('COMMIT') or $this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$sqlite3->lastErrorMsg());
+			$this->output('notice', 'import_nicks(): import completed, don\'t forget to run "php sss.php -m"');
 		}
 	}
 
-	/**
-	 * This function tries to link unlinked nicks to any other nick that is identical after stripping them both from
-	 * any non-alphanumeric characters (at any position in the nick) and trailing numerics. The results are compared
-	 * in a case insensitive manner.
-	 */
-	private function link_nicks($sqlite3)
+	private function link_nicks()
 	{
+		/**
+		 * This function tries to link unlinked nicks to any other nick that is identical after stripping them from non-alphanumeric characters (at any
+		 * position in the nick) and numerics (only at the end of the nick). The results are compared in a case insensitive manner.
+		 *
+		 * Example before:
+		 *
+		 * | nick	| uid		| ruid		| status	| description
+		 * +------------+---------------+---------------+---------------+----------------------------------
+		 * | Jack	| 80		| 80		| 1		| registered nick (linked manually)
+		 * | Jack|away	| 120		| 80		| 2		| alias (linked manually)
+		 * | Jack-away	| 550		| 550		| 0		| unlinked nick
+		 * | Jack|4w4y	| 551		| 551		| 0		| unlinked nick
+		 * | ^jack^	| 552		| 552		| 0		| unlinked nick
+		 * | Jack|brb	| 553		| 553		| 0		| unlinked nick
+		 * | Jack[brb]	| 554		| 554		| 0		| unlinked nick
+		 * | Jack^1337^	| 555		| 555		| 0		| unlinked nick
+		 *
+		 *
+		 * Example after:
+		 *
+		 * | nick	| uid		| ruid		| status	| description
+		 * +------------+---------------+---------------+---------------+--------------------------------------------
+		 * | Jack	| 80		| 80		| 1		| registered nick
+		 * | Jack|away	| 120		| 80		| 2		| existing alias
+		 * | Jack-away	| 550		| 80		| 2		| new alias pointing to the ruid of its match
+		 * | Jack|4w4y	| 551		| 551		| 0		| remains unlinked
+		 * | ^jack^	| 552		| 80		| 2		| new alias
+		 * | Jack|brb	| 553		| 553		| 1		| new registered nick
+		 * | Jack[brb]	| 554		| 553		| 2		| new alias
+		 * | Jack^1337^ | 555		| 80		| 2		| new alias
+		 *
+		 * This method has very little false positives and is therefore enabled by default.
+		 */
 		$this->output('notice', 'link_nicks(): looking for possible aliases');
-		$query = $sqlite3->query('SELECT uid, csnick, ruid, status FROM uid_details') or $this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$sqlite3->lastErrorMsg());
+		$query = @mysqli_query($this->mysqli, 'select `user_details`.`uid`, `ruid`, `csnick`, `status` from `user_details` join `user_status` on `user_details`.`uid` = `user_status`.`uid`') or $this->output('critical', 'mysqli: '.mysqli_error($this->mysqli));
+		$rows = mysqli_num_rows($query);
+
+		if (empty($rows)) {
+			$this->output('warning', 'link_nicks(): database is empty, nothing to do');
+			return null;
+		}
+
 		$strippednicks = array();
 
-		while ($result = $query->fetchArray(SQLITE3_ASSOC)) {
-			$nicks[$result['uid']] = array(
-				'nick' => $result['csnick'],
-				'ruid' => $result['ruid'],
-				'status' => $result['status']);
-			$strippednick = preg_replace(array('/[^a-z0-9]/', '/[0-9]+$/'), '', strtolower($result['csnick']));
+		while ($result = mysqli_fetch_object($query)) {
+			$nicks[(int) $result->uid] = array(
+				'nick' => $result->csnick,
+				'ruid' => (int) $result->ruid,
+				'status' => (int) $result->status);
 
 			/**
-			 * The stripped nick must consist of at least two characters.
+			 * We keep an array with uids for each stripped nick. If we encounter a linked nick we put its uid at the start of the array, otherwise
+			 * just append the uid.
+			 */
+			$strippednick = preg_replace(array('/[^a-z0-9]/', '/[0-9]+$/'), '', strtolower($result->csnick));
+
+			/**
+			 * Only proceed if the stripped nick consists of more than one character.
 			 */
 			if (strlen($strippednick) > 1) {
-				/**
-				 * Maintain an array for each stripped nick, containing the uids of every nick that
-				 * matches it. Put the uid of the matching nick at the start of the array if the nick is
-				 * already linked (status != 0), otherwise put it at the end.
-				 */
-				if ($result['status'] !== 0 && !empty($strippednicks[$strippednick])) {
-					array_unshift($strippednicks[$strippednick], $result['uid']);
+				if ((int) $result->status != 0 && !empty($strippednicks[$strippednick])) {
+					array_unshift($strippednicks[$strippednick], (int) $result->uid);
 				} else {
-					$strippednicks[$strippednick][] = $result['uid'];
+					$strippednicks[$strippednick][] = (int) $result->uid;
 				}
 			}
 		}
 
-		$sqlite3->exec('BEGIN TRANSACTION') or $this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$sqlite3->lastErrorMsg());
+		$nickslinked = 0;
 
 		foreach ($strippednicks as $uids) {
 			/**
-			 * If there is only one match for the stripped nick, there is nothing to link.
+			 * If there is only one uid for the stripped nick we don't have anything to link.
 			 */
-			if (count($uids) === 1) {
+			if (count($uids) == 1) {
 				continue;
 			}
 
-			$newalias = false;
+			/**
+			 * Use the ruid that belongs to the first uid in the array to link all succeeding unlinked uids to. If the first uid is unlinked
+			 * (status = 0) we update its record to become a registered nick (status = 1) when there is at least one new alias found for it
+			 * (any succeeding uid with status = 0).
+			 */
+			$aliasfound = false;
 
 			for ($i = 1, $j = count($uids); $i < $j; $i++) {
-				/**
-				 * Use the ruid that belongs to the first uid in the array to link all succeeding
-				 * _unlinked_ nicks to.
-				 */
-				if ($nicks[$uids[$i]]['status'] === 0) {
-					$newalias = true;
-					$sqlite3->exec('UPDATE uid_details SET ruid = '.$nicks[$uids[0]]['ruid'].', status = 2 WHERE uid = '.$uids[$i]) or $this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$sqlite3->lastErrorMsg());
+				if ($nicks[$uids[$i]]['status'] == 0) {
+					@mysqli_query($this->mysqli, 'update `user_status` set `ruid` = '.$nicks[$uids[0]]['ruid'].', `status` = 2 where `uid` = '.$uids[$i]) or $this->output('critical', 'mysqli: '.mysqli_error($this->mysqli));
 					$this->output('debug', 'link_nicks(): linked \''.$nicks[$uids[$i]]['nick'].'\' to \''.$nicks[$nicks[$uids[0]]['ruid']]['nick'].'\'');
+					$nickslinked++;
+					$aliasfound = true;
 				}
 			}
 
-			/**
-			 * If there are aliases found, and the first nick in the array is unlinked (status = 0), make it
-			 * a registered nick (status = 1).
-			 */
-			if ($newalias && $nicks[$uids[0]]['status'] === 0) {
-				$sqlite3->exec('UPDATE uid_details SET status = 1 WHERE uid = '.$uids[0]) or $this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$sqlite3->lastErrorMsg());
+			if ($aliasfound && $nicks[$uids[0]]['status'] == 0) {
+				@mysqli_query($this->mysqli, 'update `user_status` set `status` = 1 where `uid` = '.$uids[0]) or $this->output('critical', 'mysqli: '.mysqli_error($this->mysqli));
 			}
 		}
 
-		$sqlite3->exec('COMMIT') or $this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$sqlite3->lastErrorMsg());
+		if ($nickslinked == 0) {
+			$this->output('notice', 'link_nicks(): no new aliases found');
+		}
 	}
 
-	private function make_html($sqlite3, $file)
+	private function make_html($file)
 	{
 		$html = new html($this->settings);
-		$output = $html->make_html($sqlite3);
+		$output = $html->make_html($this->mysqli);
 
-		if (($fp = fopen($file, 'wb')) === false) {
+		if (($fp = @fopen($file, 'wb')) === false) {
 			$this->output('critical', 'make_html(): failed to open file: \''.$file.'\'');
 		}
 
@@ -438,16 +434,14 @@ final class sss extends base
 		fclose($fp);
 	}
 
-	private function parse_log($sqlite3, $filedir)
+	private function parse_log($filedir)
 	{
 		if (($rp = realpath($filedir)) === false) {
 			$this->output('critical', 'parse_log(): no such file or directory: \''.$filedir.'\'');
 		}
 
-		$files = array();
-
 		if (is_dir($rp)) {
-			if (($dh = opendir($rp)) === false) {
+			if (($dh = @opendir($rp)) === false) {
 				$this->output('critical', 'parse_log(): failed to open directory: \''.$rp.'\'');
 			}
 
@@ -462,7 +456,7 @@ final class sss extends base
 
 		foreach ($files as $file) {
 			/**
-			 * The filenames should match the pattern provided by $logfile_dateformat.
+			 * If the filename doesn't match the pattern provided by $logfile_dateformat this condition will not be met.
 			 */
 			if (($datetime = date_create_from_format($this->logfile_dateformat, basename($file))) !== false) {
 				$logfiles[date_format($datetime, 'Y-m-d')] = $file;
@@ -479,12 +473,26 @@ final class sss extends base
 		ksort($logfiles);
 
 		/**
-		 * Get the date of the last log parsed.
+		 * Get the date of the last log that has been parsed.
 		 */
-		if (($date_lastlogparsed = $sqlite3->querySingle('SELECT MAX(date) FROM parse_history')) === false) {
-			$this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$sqlite3->lastErrorMsg());
+		$query = @mysqli_query($this->mysqli, 'select max(`date`) as `date` from `parse_history`') or $this->output('critical', 'mysqli: '.mysqli_error($this->mysqli));
+		$rows = mysqli_num_rows($query);
+
+		if (!empty($rows)) {
+			$result = mysqli_fetch_object($query);
+			$date_lastlogparsed = $result->date;
+		} else {
+			$date_lastlogparsed = null;
 		}
 
+		/**
+		 * $logsparsed increases after each log parsed.
+		 */
+		$logsparsed = 0;
+
+		/**
+		 * $needmaintenance becomes true when there are actual lines parsed. Maintenance routines are only run once after all logs are parsed.
+		 */
 		$needmaintenance = false;
 
 		foreach ($logfiles as $date => $logfile) {
@@ -496,30 +504,33 @@ final class sss extends base
 			$parser->set_value('date', $date);
 
 			/**
-			 * Get the streak history. This will assume logs are parsed in chronological order with no gaps.
+			 * Get the streak history. This will assume logs are parsed in chronological order with no gaps. If this is not the case the correctness
+			 * of the streak stats might be affected.
 			 */
-			if (($result = $sqlite3->querySingle('SELECT prevnick, streak FROM streak_history', true)) === false) {
-				$this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$sqlite3->lastErrorMsg());
-			}
+			$query = @mysqli_query($this->mysqli, 'select * from `streak_history`') or $this->output('critical', 'mysqli: '.mysqli_error($this->mysqli));
+			$rows = mysqli_num_rows($query);
 
-			if (!empty($result)) {
-				$parser->set_value('prevnick', $result['prevnick']);
-				$parser->set_value('streak', $result['streak']);
+			if (!empty($rows)) {
+				$result = mysqli_fetch_object($query);
+				$parser->set_value('prevnick', $result->prevnick);
+				$parser->set_value('streak', (int) $result->streak);
 			}
 
 			/**
-			 * Get the parse history and set the line number on which to start parsing the log.
+			 * Get the parse history.
 			 */
-			if (($firstline = $sqlite3->querySingle('SELECT lines_parsed + 1 FROM parse_history WHERE date = \''.$date.'\'')) === false) {
-				$this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$sqlite3->lastErrorMsg());
-			}
+			$query = @mysqli_query($this->mysqli, 'select `lines_parsed` from `parse_history` where `date` = \''.mysqli_real_escape_string($this->mysqli, $date).'\'') or $this->output('critical', 'mysqli: '.mysqli_error($this->mysqli));
+			$rows = mysqli_num_rows($query);
 
-			if (is_null($firstline)) {
+			if (!empty($rows)) {
+				$result = mysqli_fetch_object($query);
+				$firstline = (int) $result->lines_parsed + 1;
+			} else {
 				$firstline = 1;
 			}
 
 			/**
-			 * Check if the log is gzipped and call the appropriate parser.
+			 * Check if we are dealing with a gzipped log.
 			 */
 			if (preg_match('/\.gz$/', $logfile)) {
 				if (!extension_loaded('zlib')) {
@@ -531,41 +542,51 @@ final class sss extends base
 				$parser->parse_log($logfile, $firstline);
 			}
 
+			$logsparsed++;
+
 			/**
 			 * Update the parse history when there are actual (non empty) lines parsed.
 			 */
 			if ($parser->get_value('linenum_lastnonempty') >= $firstline) {
-				$sqlite3->exec('INSERT OR IGNORE INTO parse_history (date, lines_parsed) VALUES (\''.$date.'\', '.$parser->get_value('linenum_lastnonempty').')') or $this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$sqlite3->lastErrorMsg());
-				$sqlite3->exec('UPDATE parse_history SET lines_parsed = '.$parser->get_value('linenum_lastnonempty').' WHERE CHANGES() = 0 AND date = \''.$date.'\'') or $this->output('critical', basename(__FILE__).':'.__LINE__.', sqlite3 says: '.$sqlite3->lastErrorMsg());
+				@mysqli_query($this->mysqli, 'insert into `parse_history` set `date` = \''.mysqli_real_escape_string($this->mysqli, $date).'\', `lines_parsed` = '.$parser->get_value('linenum_lastnonempty').' on duplicate key update `lines_parsed` = '.$parser->get_value('linenum_lastnonempty')) or $this->output('critical', 'mysqli: '.mysqli_error($this->mysqli));
+			}
 
-				/**
-				 * Write data to database and set $needmaintenance to true if there was any data stored.
-				 */
-				if ($parser->write_data($sqlite3)) {
-					$needmaintenance = true;
-				}
+			/**
+			 * When new data is found write it to the database and set $needmaintenance to true.
+			 */
+			if ($parser->get_value('newdata')) {
+				$parser->write_data($this->mysqli);
+				$needmaintenance = true;
+			} else {
+				$this->output('notice', 'parse_log(): no new data to write to database');
 			}
 		}
 
 		/**
-		 * Finally, call maintenance if needed.
+		 * If there are no logs parsed, output the reason.
+		 */
+		if ($logsparsed == 0) {
+			$this->output('notice', 'parse_log(): skipped all logs predating latest parse progress');
+		}
+
+		/**
+		 * Finally run maintenance routines if needed.
 		 */
 		if ($needmaintenance) {
-			$this->do_maintenance($sqlite3);
+			$this->do_maintenance();
 		}
 	}
 
 	private function print_manual()
 	{
-		$man = 'usage:  php sss.php [-c <file>] [-i <file|directory>]'."\n"
-			. '                    [-o <file> [-b <numbits>]]'."\n\n"
-			. 'See the MANUAL file for an overview of all available options.'."\n";
+		$man = 'usage:	php sss.php [-c <file>] [-i <file|directory>]'."\n"
+		     . '		    [-o <file> [-b <numbits>]]'."\n\n"
+		     . 'See the MANUAL file for an overview of all available options.'."\n";
 		exit($man);
 	}
 
 	/**
-	 * Read the settings from the configuration file and put them into $settings[] so they can be passed along to
-	 * other classes.
+	 * Read settings from the config file and put them into $settings[] so we can pass them along to other classes.
 	 */
 	private function read_config($file)
 	{
@@ -573,12 +594,13 @@ final class sss extends base
 			$this->output('critical', 'read_config(): no such file: \''.$file.'\'');
 		}
 
-		if (($fp = fopen($rp, 'rb')) === false) {
+		if (($fp = @fopen($rp, 'rb')) === false) {
 			$this->output('critical', 'read_config(): failed to open file: \''.$rp.'\'');
 		}
 
 		while (!feof($fp)) {
-			$line = trim(fgets($fp));
+			$line = fgets($fp);
+			$line = trim($line);
 
 			if (preg_match('/^(\w+)\s*=\s*"(.*?)"(\s*#.*)?$/', $line, $matches)) {
 				$this->settings[$matches[1]] = $matches[2];
@@ -588,30 +610,30 @@ final class sss extends base
 		fclose($fp);
 
 		/**
-		 * Exit if any crucial settings are missing or empty.
+		 * Exit if any crucial settings aren't present in the config file.
 		 */
 		foreach ($this->settings_list_required as $key) {
-			if (empty($this->settings[$key])) {
+			if (!array_key_exists($key, $this->settings)) {
 				$this->output('critical', 'read_config(): missing setting: \''.$key.'\'');
 			}
 		}
 
 		/**
-		 * If set, override variables listed in $settings_list[].
+		 * The variables that are listed in $settings_list will have their values overridden by those found in the config file.
 		 */
 		foreach ($this->settings_list as $key => $type) {
 			if (!array_key_exists($key, $this->settings)) {
 				continue;
 			}
 
-			if ($type === 'string') {
+			if ($type == 'string') {
 				$this->$key = $this->settings[$key];
-			} elseif ($type === 'int') {
+			} elseif ($type == 'int') {
 				$this->$key = (int) $this->settings[$key];
-			} elseif ($type === 'bool') {
-				if (strtolower($this->settings[$key]) === 'true') {
+			} elseif ($type == 'bool') {
+				if (strtolower($this->settings[$key]) == 'true') {
 					$this->$key = true;
-				} elseif (strtolower($this->settings[$key]) === 'false') {
+				} elseif (strtolower($this->settings[$key]) == 'false') {
 					$this->$key = false;
 				}
 			}
