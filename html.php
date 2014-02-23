@@ -17,6 +17,10 @@
  */
 
 /**
+ * Portions of this code are Copyright (c) 2013-2014, lostlabyrinth
+ */
+
+/**
  * Class for creating the main statspage.
  */
 final class html extends base

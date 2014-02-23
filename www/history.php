@@ -17,6 +17,10 @@
  */
 
 /**
+ * Portions of this code are Copyright (c) 2013-2014, lostlabyrinth
+ */
+
+/**
  * Class for creating historical stats.
  */
 final class history
