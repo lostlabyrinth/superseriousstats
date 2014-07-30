@@ -193,7 +193,11 @@ final class user
 				's_47' => '=X',
 				's_48' => ':[',
 				's_49' => '>:(',
-				's_50' => ';o');
+				's_50' => ';o',
+                                's_51' => 'XD',
+                                's_52' => '>_<',
+                                's_53' => '>_>',
+                                's_54' => '<_<');
 
 			foreach ($smileys_totals as $key => $value) {
 				if ($key != 'ruid') {
@@ -384,7 +388,11 @@ final class user
                                 's_47' => '=X',
                                 's_48' => ':[',
                                 's_49' => '>:(',
-                                's_50' => ';o');
+                                's_50' => ';o',
+                                's_51' => 'XD',
+                                's_52' => '>_<',
+                                's_53' => '>_>',
+                                's_54' => '<_<');
 
                 /**
                  * Retrieve all items and fill the divs.
