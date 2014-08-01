@@ -587,10 +587,6 @@ CREATE TABLE `q_smileys` (
   `s_48` int(10) unsigned NOT NULL DEFAULT '0',
   `s_49` int(10) unsigned NOT NULL DEFAULT '0',
   `s_50` int(10) unsigned NOT NULL DEFAULT '0',
-  `s_51` int(10) unsigned NOT NULL DEFAULT '0',
-  `s_52` int(10) unsigned NOT NULL DEFAULT '0',
-  `s_53` int(10) unsigned NOT NULL DEFAULT '0',
-  `s_54` int(10) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`ruid`),
   KEY `s_01` (`s_01`),
   KEY `s_02` (`s_02`),
@@ -641,11 +637,7 @@ CREATE TABLE `q_smileys` (
   KEY `s_47` (`s_47`),
   KEY `s_48` (`s_48`),
   KEY `s_49` (`s_49`),
-  KEY `s_50` (`s_50`),
-  KEY `s_51` (`s_51`),
-  KEY `s_52` (`s_52`),
-  KEY `s_53` (`s_53`),
-  KEY `s_54` (`s_54`)
+  KEY `s_50` (`s_50`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1146,10 +1138,6 @@ CREATE TABLE `t_q_smileys` (
   `s_48` int(10) unsigned NOT NULL DEFAULT '0',
   `s_49` int(10) unsigned NOT NULL DEFAULT '0',
   `s_50` int(10) unsigned NOT NULL DEFAULT '0',
-  `s_51` int(10) unsigned NOT NULL DEFAULT '0',
-  `s_52` int(10) unsigned NOT NULL DEFAULT '0',
-  `s_53` int(10) unsigned NOT NULL DEFAULT '0',
-  `s_54` int(10) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`ruid`),
   KEY `s_01` (`s_01`),
   KEY `s_02` (`s_02`),
@@ -1200,11 +1188,7 @@ CREATE TABLE `t_q_smileys` (
   KEY `s_47` (`s_47`),
   KEY `s_48` (`s_48`),
   KEY `s_49` (`s_49`),
-  KEY `s_50` (`s_50`),
-  KEY `s_51` (`s_51`),
-  KEY `s_52` (`s_52`),
-  KEY `s_53` (`s_53`),
-  KEY `s_54` (`s_54`)
+  KEY `s_50` (`s_50`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1456,10 +1440,6 @@ CREATE TABLE `user_smileys` (
   `s_48` int(10) unsigned NOT NULL DEFAULT '0',
   `s_49` int(10) unsigned NOT NULL DEFAULT '0',
   `s_50` int(10) unsigned NOT NULL DEFAULT '0',
-  `s_51` int(10) unsigned NOT NULL DEFAULT '0',
-  `s_52` int(10) unsigned NOT NULL DEFAULT '0',
-  `s_53` int(10) unsigned NOT NULL DEFAULT '0',
-  `s_54` int(10) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`uid`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
