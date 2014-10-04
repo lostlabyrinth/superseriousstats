@@ -1,5 +1,5 @@
 # About
-uberseriousstats is a modified build of version 5.1 of superseriousstats. This build retains the 5.1 base whilst adding new features, including those of older and newer versions of superseriousstats, for those who don't wish to switch from a MySQL to a SQlite database. The original copyright license is retained below for reference.
+This branch is for specific code for a project utilising uberseriousstats and is really just here to ease tracking. Why anybody else would want to use it is beyond me but hey, what's stopping you? :P
 
 # Copyright Notice
                            superseriousstats
