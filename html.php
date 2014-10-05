@@ -223,7 +223,7 @@ final class html extends base
 			      . '<html>'."\n\n"
 			      . '<head>'."\n"
 			      . '<meta charset="utf-8">'."\n"
-                              . '<div style="overflow: hidden;"><iframe src="http://lostlabyrinth.co.uk/stats/uncyclopedia/adloader.html" name="adloader" allowTransparency="true" scrolling="no" frameborder="0" width="500px" ></iframe></div>'."\n"
+                              . '<div style="overflow: hidden;"><iframe src="http://lostlabyrinth.co.uk/stats/uncyclopedia/adloader.html" name="adloader" allowTransparency="true" scrolling="no" frameborder="0" width="750px" ></iframe></div>'."\n"
 			      . '<title>'.htmlspecialchars($this->channel).', seriously.</title>'."\n"
 			      . '<link rel="stylesheet" href="'.$this->stylesheet.'">'."\n"
 			      . '<style type="text/css">'."\n"
