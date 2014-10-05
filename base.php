@@ -22,10 +22,9 @@
 abstract class base
 {
 	/**
-	 * Default settings for this script, which can be overridden in the configuration file. These variables should
-	 * all appear in $settings_list[] along with their type.
+	 * Default settings for this script, can be overridden in the config file. These should all appear in $settings_list[] along with their type.
 	 */
-	protected $outputbits = 3;
+	protected $outputbits = 7;
 
 	/**
 	 * Variables that shouldn't be tampered with.
@@ -38,26 +37,29 @@ abstract class base
 	}
 
 	/**
-	 * Create parts of the SQLite3 query.
+	 * Create parts of the mysql query.
 	 */
-	final protected function get_queryparts($sqlite3, $columns)
+	final protected function create_query($columns)
 	{
-		$queryparts = array();
+		$insert = '';
+		$update = '';
 
 		foreach ($columns as $key) {
-			if (is_int($this->$key) && $this->$key !== 0) {
-				$queryparts['columnlist'][] = $key;
-				$queryparts['update-assignments'][] = $key.' = '.$key.' + '.$this->$key;
-				$queryparts['values'][] = $this->$key;
-			} elseif (is_string($this->$key) && $this->$key !== '') {
-				$value = '\''.$sqlite3->escapeString($this->$key).'\'';
-				$queryparts['columnlist'][] = $key;
-				$queryparts['update-assignments'][] = $key.' = '.$value;
-				$queryparts['values'][] = $value;
+			if (is_int($this->$key) && $this->$key != 0) {
+				$insert .= ' `'.$key.'` = '.$this->$key.',';
+				$update .= ' `'.$key.'` = `'.$key.'` + '.$this->$key.',';
+			} elseif (is_string($this->$key) && $this->$key != '') {
+				$tmp = ' `'.$key.'` = \''.mysqli_real_escape_string($this->mysqli, $this->$key).'\',';
+				$insert .= $tmp;
+				$update .= $tmp;
 			}
 		}
 
-		return $queryparts;
+		if (!empty($insert)) {
+			return rtrim($insert, ',').' on duplicate key update'.rtrim($update, ',');
+		} else {
+			return null;
+		}
 	}
 
 	final public function get_value($var)
@@ -77,8 +79,8 @@ abstract class base
 			return null;
 		}
 
-		$datetime = date('M d H:i:s');
 		$this->prevoutput[] = $msg;
+		$datetime = date('M d H:i:s');
 
 		if (substr($datetime, 4, 1) === '0') {
 			$datetime = substr_replace($datetime, ' ', 4, 1);
@@ -91,14 +93,20 @@ abstract class base
 				}
 
 				exit;
-			case 'notice':
+			case 'warning':
 				if ($this->outputbits & 2) {
+					echo $datetime.' [!] '.$msg."\n";
+				}
+
+				break;
+			case 'notice':
+				if ($this->outputbits & 4) {
 					echo $datetime.' [ ] '.$msg."\n";
 				}
 
 				break;
 			case 'debug':
-				if ($this->outputbits & 4) {
+				if ($this->outputbits & 8) {
 					echo $datetime.' [D] '.$msg."\n";
 				}
 

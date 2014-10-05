@@ -1,8 +1,7 @@
-This is a testing build used for active development. Contrary to the master build, this is not guaranteed to perform admirably. Use at your own risk.
-=============================================================
-
+# About
 uberseriousstats is a modified build of version 5.1 of superseriousstats. This build retains the 5.1 base whilst adding new features, including those of older and newer versions of superseriousstats, for those who don't wish to switch from a MySQL to a SQlite database. The original copyright license is retained below for reference.
 
+# Copyright Notice
                            superseriousstats
 ------------------------------------------------------------------------
                      Website: http://sss.dutnie.nl

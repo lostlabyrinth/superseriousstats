@@ -54,3 +54,5 @@ examples:
 	named "/var/www/foobar.html" containing only Activity and URLs data:
 
 		$ php sss.php -i /home/foo/bar/ -o /var/www/foobar.html -b 33
+
+It is recommended to use crontabs for procedural updates of the stats page. For more detailed information on how to use this, see http://sss.dutnie.nl/howto5.html
