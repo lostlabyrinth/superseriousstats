@@ -1,3 +1,8 @@
+# ---------------------------------------
+# Please rename this file to sss.conf when you are finished. The file was named
+# as sss.conf.sample to aid future updates without modifying your config file.
+# ---------------------------------------
+#
 # ----------------------------------------
 # Configuration file for superseriousstats
 # ----------------------------------------
