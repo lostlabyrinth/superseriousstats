@@ -28,7 +28,7 @@ if (!extension_loaded('mbstring')) {
  * Class autoloader, new style. Important piece of code right here.
  */
 spl_autoload_register(function ($class) {
-	require_once(rtrim(dirname(__FILE__), '/\\').'/'.$class.'.php');
+	require_once(rtrim(dirname(__FILE__), '/\php\').'/'.$class.'.php');
 });
 
 /**
